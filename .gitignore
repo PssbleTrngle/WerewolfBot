@@ -4,4 +4,4 @@ dist/
 **.env
 **.sqlite
 
-config/**.json
+config/*.json
