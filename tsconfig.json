@@ -10,9 +10,14 @@
       "moduleResolution": "node",
       "allowJs": true,
       "esModuleInterop": true,
-      "outDir": "./build",
+      "outDir": "build",
       "emitDecoratorMetadata": true,
       "experimentalDecorators": true,
-      "sourceMap": true
+      "sourceMap": true,
+      "rootDir": "src",
+      "typeRoots": [
+         "src/@types",
+         "node_modules/@types"
+      ]
    }
 }
