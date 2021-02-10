@@ -1,22 +1,17 @@
-import { DataTypes, Model, Relationships } from 'https://deno.land/x/denodb/mod.ts';
-import Game from "./Game.ts";
+import { BaseEntity, Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import Game from "./Game";
 
-export default class Player extends Model {
+@Entity()
+@Index('discord_user_per_game', p => [p.discord, p.game], { unique: true })
+export default class Player extends BaseEntity {
 
-   static table = 'players'
-   static timestamps = true
+   @PrimaryGeneratedColumn()
+   id!: number
 
-   gameId!: number
+   @Column('varchar')
    discord!: string
 
-   static fields = {
-      id: { primaryKey: true, autoIncrement: true },
-      discord: DataTypes.STRING,
-      gameId: Relationships.belongsTo(Game),
-   }
-
-   static game() {
-      return this.hasOne(Game)
-   }
+   @ManyToOne(() => Game, g => g.players)
+   game!: Game | Promise<Game>;
 
 }

@@ -1,27 +1,57 @@
-import { bgWhite, black, blue, green, red, yellow } from 'https://deno.land/std@0.86.0/fmt/colors.ts'
+import { bgWhite, black, blue, green, red, yellow } from 'chalk'
+import bot from './bot'
+import config, { LogLevel } from './config'
 
-enum Level {
-   ERROR,
-   WARN,
-   SUCCESS,
-   INFO,
-   DEBUG,
+type Mods = ((s: string) => string)[]
+type MSG = string | number | Error
+
+const Color = {
+   [LogLevel.ERROR]: 0xE5433D,
+   [LogLevel.WARN]: 0xFFCC33,
+   [LogLevel.SUCCESS]: 0x4CC7E6,
+   [LogLevel.INFO]: 0x4CE65B,
+   [LogLevel.DEBUG]: 0x4CC7E6,
 }
 
 class Logger {
-   info = (msg: string) => this.log(Level.INFO, msg, blue)
-   success = (msg: string) => this.log(Level.SUCCESS, msg, green)
-   error = (msg: string) => this.log(Level.ERROR, msg, red)
-   warn = (msg: string) => this.log(Level.WARN, msg, yellow)
-   debug = (msg: string) => this.log(Level.DEBUG, msg, bgWhite, black)
 
-   log(level: Level, msg: string, ...mods: ((s: string) => string)[]) {
-      console.log(
-         mods.reduce((s, m) => m(s),
-            `[${Level[level]}] ${msg}`
-         )
-      )
+   info = (msg: MSG) => this.log(LogLevel.INFO, msg, blue)
+   success = (msg: MSG) => this.log(LogLevel.SUCCESS, msg, green)
+   error = (msg: MSG) => this.log(LogLevel.ERROR, msg, red)
+   warn = (msg: MSG) => this.log(LogLevel.WARN, msg, yellow)
+   debug = (msg: MSG) => this.log(LogLevel.DEBUG, msg, bgWhite, black)
+
+   async log(level: LogLevel, msg: MSG, ...mods: Mods) {
+      this.logConsole(level, msg, ...mods)
+      await this.logChannel(level, msg).catch(() => {})
    }
+
+   private logConsole(l: LogLevel, msg: MSG, ...mods: Mods) {
+      if (l <= config.logger.console.level) {
+         console.log(
+            mods.reduce((s, m) => m(s),
+               `[${LogLevel[l]}] ${msg}`
+            )
+         )
+      }
+   }
+
+   private async logChannel(l: LogLevel, msg: MSG) {
+      const {id, level} = config.logger.channel
+      const channel = id ? await bot.channels.fetch(id) : null
+
+      if (channel?.isText() && l <= level) {
+         if(msg instanceof Error) channel.send({
+            embed: {
+               title: msg.message,
+               description: '```typescript\n' + msg.stack + '\n```',
+               color: Color[l],
+            }
+         })
+         else channel.send(msg.toString())
+      }
+   }
+
 }
 
 export default new Logger()

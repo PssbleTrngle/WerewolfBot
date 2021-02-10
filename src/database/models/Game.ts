@@ -1,50 +1,41 @@
-import { DataTypes, Model } from 'https://deno.land/x/denodb/mod.ts';
-import { Channel } from "https://deno.land/x/discordeno@10.2.0/src/api/structures/channel.ts";
-import { UserPayload } from "https://deno.land/x/discordeno@10.2.0/src/types/guild.ts";
-import Player from "./Player.ts";
+import { User } from 'discord.js';
+import { BaseEntity, Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import CommandError from '../../errors/CommandError';
+import Player from "./Player";
 
-export default class Game extends Model {
+@Entity()
+export default class Game extends BaseEntity {
 
-   static table = 'games'
-   static timestamps = true
+   @PrimaryGeneratedColumn()
+   id!: number
 
-   id!: number;
+   @Column({ type: 'varchar', unique: true })
    channel!: string
 
-   static fields = {
-      id: { primaryKey: true, autoIncrement: true },
-      channel: { type: DataTypes.STRING,  unique: true }
+   @OneToMany(() => Player, p => p.game, { eager: true })
+   players!: Player
+
+   static async inChannel(channel: string) {
+      return Game.findOne({ channel })
    }
 
-   static async inChannel(channel: Channel | string): Promise<Game | null> {
-      const id = typeof channel === 'string' ? channel : channel.id
-      const games = await Game.where('channel', id).get() as Game[]
-      return games[0]
-   }
-
-   static async start(player: UserPayload, channel: string) {
+   static async start(player: User, channel: string) {
 
       const existing = await Game.inChannel(channel)
-      if(existing) throw new Error('There is alread a game in the current channel')
+      if (existing) throw new CommandError('There is alread a game in the current channel', player)
 
-      const game = await Game.create({ channel }) as Game      
-      
+      const game = await Game.create({ channel }).save()
+
       await game.join(player)
 
       return `<@${player.id}> started a new game`
    }
 
-   async join(discord: UserPayload) {
-      const player = await Player.create({
+   async join(discord: User) {
+      return Player.create({
          discord: discord.id,
-         gameId: this.id
-      }) as Player
-
-      return player
-   }
-
-   static players() {
-      return this.hasMany(Player)
+         game: this
+      }).save()
    }
 
 }

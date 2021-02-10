@@ -1,13 +1,14 @@
-import { dirname, fromFileUrl, join } from 'https://deno.land/std@0.86.0/path/mod.ts'
+import { readdirSync, statSync } from "fs"
+import { join } from "path"
 
 export function importAll(dir: string) {
-   const base = dirname(fromFileUrl(import.meta.url))
-   const folder = join(base, dir)
+   const folder = join(__dirname, dir)
 
-   const files = [...Deno.readDirSync(folder)]
+   const files = readdirSync(folder)
 
    return Promise.all(files
-      .filter(f => f.isFile && f.name.endsWith('.ts'))
-      .map(f => import(`file://${folder}/${f.name}`))
+      .filter(f => statSync(f).isFile && f.endsWith('.ts'))
+      .map(f => import(join(folder, f)))
    ).then(a => a.map(i => i.default))
+   
 }

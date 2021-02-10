@@ -1,25 +1,64 @@
-import coffee from "https://deno.land/x/coffee/mod.ts";
+import dotenv from 'dotenv'
+import { resolve } from 'path'
+import { ConnectionOptions } from 'typeorm'
 
-coffee.load({
-   configDir: Deno.cwd() + '/config'
-})
+export enum LogLevel {
+   ERROR,
+   WARN,
+   SUCCESS,
+   INFO,
+   DEBUG,
+}
 
-const get = (path: string) => coffee.get(path)
-const has = (path: string) => coffee.has(path)
-const optional = (path: string) => has(path) ? get(path) : undefined
+dotenv.config()
 
-const db = {
-   host: get("database.host").string(),
-   port: optional("database.port")?.number(),
-   name: get("database.name").string(),
-   password: get("database.password").string(),
-   username: get("database.username").string(),
-   drop: get("database.drop").boolean() ?? false,
+const {
+   DATABASE_LOGGING, DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_PASS, DATABASE_USER,
+   DISCORD_BOT_TOKEN,
+   LOG_CHANNEL, LOG_LEVEL_CHANNEL, LOG_LEVEL_CONSOLE
+} = process.env
+
+const required = (s?: string) => {
+   if (s) return s
+   else throw new Error('Missing config option')
+}
+
+const integer = (s?: string) => {
+   const n = Number.parseInt(s ?? '')
+   return isNaN(n) ? undefined : n
+}
+
+const db: ConnectionOptions = {
+   synchronize: true,
+   host: DATABASE_HOST,
+   port: integer(DATABASE_PORT) ?? 80,
+   database: DATABASE_NAME ?? 'werewolf',
+   username: DATABASE_USER ?? DATABASE_NAME ?? 'werewolf',
+   password: DATABASE_PASS,
+   logging: DATABASE_LOGGING === 'true',
+   type: 'postgres',
+   entities: [
+      `${resolve(__dirname, 'database', 'models')}/**.js`,
+      `${resolve(__dirname, 'database', 'models')}/**.ts`,
+   ],
 };
 
 const discord = {
-   token: get("discord.token").string(),
-   guild: optional('discord.guild')?.string(),
+   token: required(DISCORD_BOT_TOKEN),
 };
 
-export default { db, discord };
+const logLevel = (s?: string): LogLevel | undefined => {
+   return (LogLevel as any)[s?.toUpperCase() ?? '']
+}
+
+const logger = {
+   channel: {
+      id: LOG_CHANNEL,
+      level: logLevel(LOG_LEVEL_CHANNEL) ?? LogLevel.ERROR,
+   },
+   console: {
+      level: logLevel(LOG_LEVEL_CONSOLE) ?? LogLevel.INFO,
+   }
+}
+
+export default { db, discord, logger };
