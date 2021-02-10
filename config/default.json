@@ -1,0 +1,14 @@
+{
+   "database": {
+      "host": "somethingcatchy.net",
+      "port": 7701,
+      "name": "werewolf",
+      "username": "werewolf",
+      "password": "R&hj2xmgL4h5rk",
+      "drop": true
+   },
+   "discord": {
+      "token": "NzI2NDM1MTc1ODEwMjAzNzI1.XvdPeg.3-O45L-HYqePC2Dt5lsvcRRNJp8",
+      "guild": "410822169572933652"
+   }
+}

@@ -1,0 +1,11 @@
+{
+   "database": {
+      "host": "host.com",
+      "name": "werewolf",
+      "username": "user",
+      "password": "**********"
+   },
+   "discord": {
+      "token": "******************************"
+   }
+}

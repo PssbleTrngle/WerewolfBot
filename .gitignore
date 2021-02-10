@@ -1,9 +1,7 @@
-.vscode/
-
-node_modules/
-
 build/
 dist/
 
 **.env
 **.sqlite
+
+config/**.json
