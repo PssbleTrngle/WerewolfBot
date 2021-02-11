@@ -1,0 +1,44 @@
+name: Build Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docker-compose.yml'
+      - '.env.example'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Extract branch name
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: branch
+
+      - name: Get docker build tag
+        id: tag
+        uses: actions/github-script@v3
+        with:
+          result-encoding: string
+          script: |
+            return {
+              development: 'dev',
+              master: 'latest',  
+            }[process.env.BRANCH]
+        env:
+          BRANCH: ${{ steps.branch.outputs.branch }}
+
+      - name: Build & Publish Container
+        uses: whoan/docker-build-with-cache-action@v5
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          image_name: ${{ secrets.DOCKER_USERNAME }}/werewolf-bot
+          image_tag: ${{ steps.tag.outputs.result }}
+          push_image_and_stages: ${{ steps.tag.outputs.result != null }}

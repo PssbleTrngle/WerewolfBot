@@ -1,0 +1,12 @@
+node_modules/
+
+**.env
+**.sqlite
+
+storage/
+temp/
+
+build/
+dist/
+
+**.csv

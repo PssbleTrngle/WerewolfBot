@@ -32,7 +32,7 @@ const integer = (s?: string) => {
 const db: ConnectionOptions = {
    synchronize: true,
    host: DATABASE_HOST,
-   port: integer(DATABASE_PORT) ?? 80,
+   port: integer(DATABASE_PORT) ?? 5432,
    database: DATABASE_NAME ?? 'werewolf',
    username: DATABASE_USER ?? DATABASE_NAME ?? 'werewolf',
    password: DATABASE_PASS,
