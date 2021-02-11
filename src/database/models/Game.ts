@@ -41,7 +41,7 @@ export default class Game extends BaseEntity {
    async start() {
 
       if (this.players.length < config.game.minPlayers) throw new CommandError(START_NOT_ENOUGH_PLAYERS)
-
+      
 
    }
 
