@@ -4,11 +4,13 @@ import config, { LogLevel } from "./config";
 import CommandError from "./errors/CommandError";
 import logger, { LogColor } from "./logger";
 
-type MsgChannel = TextChannel | DMChannel | NewsChannel
+export type MsgChannel = TextChannel | DMChannel | NewsChannel
 
 export function isMessageChannel(channel: Channel): channel is MsgChannel {
    return ['text', 'dm', 'news'].includes(channel.type)
 }
+
+const isTextChannel = (channel: Channel): channel is TextChannel => channel.type === 'text'
 
 class Bot extends Client {
 
@@ -16,8 +18,13 @@ class Bot extends Client {
       super({})
    }
 
-   embed(channel: MsgChannel, message: string | Error, title?: string, level?: LogLevel) {
-      const description = typeof message === 'string' ? message : message.message
+   embed(channel: MsgChannel, message: string | string[] | Error, title?: string, level?: LogLevel) {
+      const description = typeof message === 'string'
+         ? message
+         : message instanceof Error
+            ? message.message
+            : message.join('\n')
+
       const defaultLevel = typeof message === 'string' ? LogLevel.INFO : LogLevel.ERROR
       channel.send({
          embed: {
@@ -46,17 +53,19 @@ const bot = new Bot()
 
 bot.on('message', async message => {
    const { content, channel, author } = message
-   if (!channel) return;
+   const { deleteCommandTriggers } = config.discord
+   if (!isTextChannel(channel)) return;
 
    const response = await bot.tryIn(channel, () => commands.tryExecute(channel, author, content))
-   if (response) {
-      
-      if (config.discord.deleteCommandTriggers && message.deletable) {
-         message.delete().catch(e => logger.warn(`Could not delete command trigger: ${e.message}`))
-      } 
 
-      if(typeof response === 'string') bot.embed(channel, response, undefined, LogLevel.SUCCESS)
-      else bot.embed(channel, response.message, undefined, response.level)
+   if (response) {
+
+      if (deleteCommandTriggers && message.deletable) {
+         message.delete().catch(e => logger.warn(`Could not delete command trigger: ${e.message}`))
+      }
+
+      if (typeof response === 'string') bot.embed(channel, response, undefined, LogLevel.SUCCESS)
+      else bot.embed(channel, response.message, response.title, response.level)
    }
 
 })

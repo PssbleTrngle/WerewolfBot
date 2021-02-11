@@ -2,6 +2,8 @@ import dotenv from 'dotenv'
 import { resolve } from 'path'
 import { ConnectionOptions } from 'typeorm'
 
+const { env } = process
+
 export enum LogLevel {
    ERROR,
    WARN,
@@ -11,13 +13,6 @@ export enum LogLevel {
 }
 
 dotenv.config()
-
-const {
-   DATABASE_LOGGING, DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_PASS, DATABASE_USER,
-   BOT_TOKEN, BOT_PREFIX, BOT_DELETE_COMMAND_TRIGGERS,
-   LOG_CHANNEL, LOG_LEVEL_CHANNEL, LOG_LEVEL_CONSOLE,
-   MAX_GAMES, PLAYER_ROLE, MIN_PLAYERS, MAX_PLAYERS, FORCE_PLAYERS
-} = process.env
 
 const required = (s?: string) => {
    if (s) return s
@@ -31,12 +26,12 @@ const integer = (s?: string) => {
 
 const db: ConnectionOptions = {
    synchronize: true,
-   host: DATABASE_HOST,
-   port: integer(DATABASE_PORT) ?? 5432,
-   database: DATABASE_NAME ?? 'werewolf',
-   username: DATABASE_USER ?? DATABASE_NAME ?? 'werewolf',
-   password: DATABASE_PASS,
-   logging: DATABASE_LOGGING === 'true',
+   host: env.DATABASE_HOST,
+   port: integer(env.DATABASE_PORT) ?? 5432,
+   database: env.DATABASE_NAME ?? 'werewolf',
+   username: env.DATABASE_USER ?? env.DATABASE_NAME ?? 'werewolf',
+   password: env.DATABASE_PASS,
+   logging: env.DATABASE_LOGGING === 'true',
    type: 'postgres',
    entities: [
       `${resolve(__dirname, 'database', 'models')}/**.js`,
@@ -45,17 +40,18 @@ const db: ConnectionOptions = {
 };
 
 const discord = {
-   token: required(BOT_TOKEN),
-   prefix: BOT_PREFIX || 'w.',
-   deleteCommandTriggers: BOT_DELETE_COMMAND_TRIGGERS === 'true'
+   token: required(env.BOT_TOKEN),
+   prefix: env.BOT_PREFIX || 'w.',
+   deleteCommandTriggers: env.BOT_DELETE_COMMAND_TRIGGERS === 'true'
 };
 
 const game = {
-   maxGames: integer(MAX_GAMES) ?? Number.MAX_SAFE_INTEGER,
-   minPlayers: integer(MIN_PLAYERS) ?? 5,
-   maxPlayers: integer(MAX_PLAYERS) ?? Number.MAX_SAFE_INTEGER,
-   playerRole: integer(PLAYER_ROLE),
-   forcePlayer: FORCE_PLAYERS !== 'false',
+   maxGames: integer(env.MAX_GAMES) ?? Number.MAX_SAFE_INTEGER,
+   minPlayers: integer(env.MIN_PLAYERS) ?? 5,
+   maxPlayers: integer(env.MAX_PLAYERS) ?? Number.MAX_SAFE_INTEGER,
+   playerRole: integer(env.PLAYER_ROLE),
+   forcePlayer: env.FORCE_PLAYERS !== 'false',
+   autoStart: env.AUTOSTART === 'false' ? undefined : (integer(env.AUTOSTART) ?? 20)
 }
 
 const logLevel = (s?: string): LogLevel | undefined => {
@@ -64,11 +60,11 @@ const logLevel = (s?: string): LogLevel | undefined => {
 
 const logger = {
    channel: {
-      id: LOG_CHANNEL,
-      level: logLevel(LOG_LEVEL_CHANNEL) ?? LogLevel.ERROR,
+      id: env.LOG_CHANNEL,
+      level: logLevel(env.LOG_LEVEL_CHANNEL) ?? LogLevel.ERROR,
    },
    console: {
-      level: logLevel(LOG_LEVEL_CONSOLE) ?? LogLevel.INFO,
+      level: logLevel(env.LOG_LEVEL_CONSOLE) ?? LogLevel.INFO,
    }
 }
 

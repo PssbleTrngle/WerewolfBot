@@ -1,6 +1,7 @@
 import { User } from 'discord.js';
 import { BaseEntity, Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
-import CommandError from '../../errors/CommandError';
+import config from '../../config';
+import CommandError, { ALREADY_JOINED, GAME_EXISTING, GAME_MISSING, START_NOT_ENOUGH_PLAYERS } from '../../errors/CommandError';
 import Player from "./Player";
 
 @Entity()
@@ -19,16 +20,29 @@ export default class Game extends BaseEntity {
    @OneToMany(() => Player, p => p.game, { eager: true })
    players!: Player[]
 
-   static inChannel(channel: string) {
-      return Game.findOne({ channel })
+   static async inChannel(channel: string) {
+      const game = await Game.findOne({ channel })
+      if (!game) throw new CommandError(GAME_MISSING)
+      else return game
    }
 
-   static async start(player: User, channel: string) {
-      const existing = await Game.inChannel(channel)
-      if (existing) throw new CommandError('There is alread a game in the current channel', player)
+   static async createIn(player: User, channel: string) {
+      const existing = await Game.inChannel(channel).catch(() => null)
+      if (existing) throw new CommandError(GAME_EXISTING, player)
 
       const game = await Game.create({ channel }).save()
       await game.join(player)
+   }
+
+   async stop() {
+      await this.remove()
+   }
+
+   async start() {
+
+      if (this.players.length < config.game.minPlayers) throw new CommandError(START_NOT_ENOUGH_PLAYERS)
+
+
    }
 
    async join(discord: User) {
@@ -36,7 +50,7 @@ export default class Game extends BaseEntity {
          discord: discord.id,
          game: this
       }).save().catch(e => {
-         if(e.message.includes('duplicate key')) throw new CommandError('You already joined the game')
+         if (e.message.includes('duplicate key')) throw new CommandError(ALREADY_JOINED)
          throw e
       })
 

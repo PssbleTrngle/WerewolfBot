@@ -1,6 +1,6 @@
 import { BaseEntity, Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import config from '../../config';
-import CommandError from '../../errors/CommandError';
+import CommandError, { LEAVE_NOT_ENOUGH_PLAYERS } from '../../errors/CommandError';
 import Game from "./Game";
 
 @Entity()
@@ -24,7 +24,7 @@ export default class Player extends BaseEntity {
       const game = await Game.findOneOrFail(this.gameId)
 
       if (game.started && game.players.length <= config.game.minPlayers) {
-         if (config.game.forcePlayer) throw new CommandError('Cannot leave started game if there are not enough players')
+         if (config.game.forcePlayer) throw new CommandError(LEAVE_NOT_ENOUGH_PLAYERS)
          else {
 
             await game.remove()

@@ -1,7 +1,7 @@
 import { Command } from "../commands";
 import config, { LogLevel } from "../config";
 import Player from "../database/models/Player";
-import CommandError from "../errors/CommandError";
+import CommandError, { NOT_IN_GAME } from "../errors/CommandError";
 
 const command: Command = {
    description: 'Leave the game you are in',
@@ -12,11 +12,11 @@ const command: Command = {
          .leftJoinAndSelect('player.game', 'game')
          .getOne()
 
-      if (!player) throw new CommandError('You are not part of this game')
+      if (!player) throw new CommandError(NOT_IN_GAME)
 
       const game = await player.leave()
 
-      if(game) return `<@${by.id}> left the game (${game.players.length} / ${config.game.minPlayers})`
+      if(game) return `<@${by.id}> left the game (${game.players.length}/${config.game.minPlayers})`
       else return { message: `<@${by.id}> left the game, not enough players to continue`, level: LogLevel.WARN }
    }
 }
