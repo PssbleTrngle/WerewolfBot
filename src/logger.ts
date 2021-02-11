@@ -5,7 +5,7 @@ import config, { LogLevel } from './config'
 type Mods = ((s: string) => string)[]
 type MSG = string | number | Error
 
-const Color = {
+export const LogColor = {
    [LogLevel.ERROR]: 0xE5433D,
    [LogLevel.WARN]: 0xFFCC33,
    [LogLevel.SUCCESS]: 0x4CC7E6,
@@ -23,7 +23,7 @@ class Logger {
 
    async log(level: LogLevel, msg: MSG, ...mods: Mods) {
       this.logConsole(level, msg, ...mods)
-      await this.logChannel(level, msg).catch(() => {})
+      await this.logChannel(level, msg).catch(() => { })
    }
 
    private logConsole(l: LogLevel, msg: MSG, ...mods: Mods) {
@@ -37,17 +37,11 @@ class Logger {
    }
 
    private async logChannel(l: LogLevel, msg: MSG) {
-      const {id, level} = config.logger.channel
+      const { id, level } = config.logger.channel
       const channel = id ? await bot.channels.fetch(id) : null
 
       if (channel?.isText() && l <= level) {
-         if(msg instanceof Error) channel.send({
-            embed: {
-               title: msg.message,
-               description: '```typescript\n' + msg.stack + '\n```',
-               color: Color[l],
-            }
-         })
+         if (msg instanceof Error) bot.embed(channel, msg.message, '```typescript\n' + msg.stack + '\n```', l)
          else channel.send(msg.toString())
       }
    }

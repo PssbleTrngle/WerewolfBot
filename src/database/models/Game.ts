@@ -6,6 +6,10 @@ import Player from "./Player";
 @Entity()
 export default class Game extends BaseEntity {
 
+   get started() {
+      return false
+   }
+
    @PrimaryGeneratedColumn()
    id!: number
 
@@ -13,29 +17,31 @@ export default class Game extends BaseEntity {
    channel!: string
 
    @OneToMany(() => Player, p => p.game, { eager: true })
-   players!: Player
+   players!: Player[]
 
    static async inChannel(channel: string) {
       return Game.findOne({ channel })
    }
 
    static async start(player: User, channel: string) {
-
       const existing = await Game.inChannel(channel)
       if (existing) throw new CommandError('There is alread a game in the current channel', player)
 
       const game = await Game.create({ channel }).save()
-
       await game.join(player)
-
-      return `<@${player.id}> started a new game`
    }
 
    async join(discord: User) {
-      return Player.create({
+      const player = await Player.create({
          discord: discord.id,
          game: this
-      }).save()
+      }).save().catch(e => {
+         if(e.message.includes('duplicate key')) throw new CommandError('You already joined the game')
+         throw e
+      })
+
+      await this.reload()
+      return player
    }
 
 }

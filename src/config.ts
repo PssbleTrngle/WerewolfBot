@@ -14,8 +14,9 @@ dotenv.config()
 
 const {
    DATABASE_LOGGING, DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_PASS, DATABASE_USER,
-   DISCORD_BOT_TOKEN,
-   LOG_CHANNEL, LOG_LEVEL_CHANNEL, LOG_LEVEL_CONSOLE
+   BOT_TOKEN, BOT_PREFIX, BOT_DELETE_COMMAND_TRIGGERS,
+   LOG_CHANNEL, LOG_LEVEL_CHANNEL, LOG_LEVEL_CONSOLE,
+   MAX_GAMES, PLAYER_ROLE, MIN_PLAYERS, MAX_PLAYERS, FORCE_PLAYERS
 } = process.env
 
 const required = (s?: string) => {
@@ -44,8 +45,18 @@ const db: ConnectionOptions = {
 };
 
 const discord = {
-   token: required(DISCORD_BOT_TOKEN),
+   token: required(BOT_TOKEN),
+   prefix: BOT_PREFIX || 'w.',
+   deleteCommandTriggers: BOT_DELETE_COMMAND_TRIGGERS === 'true'
 };
+
+const game = {
+   maxGames: integer(MAX_GAMES) ?? Number.MAX_SAFE_INTEGER,
+   minPlayers: integer(MIN_PLAYERS) ?? 5,
+   maxPlayers: integer(MAX_PLAYERS) ?? Number.MAX_SAFE_INTEGER,
+   playerRole: integer(PLAYER_ROLE),
+   forcePlayer: FORCE_PLAYERS !== 'false',
+}
 
 const logLevel = (s?: string): LogLevel | undefined => {
    return (LogLevel as any)[s?.toUpperCase() ?? '']
@@ -61,4 +72,4 @@ const logger = {
    }
 }
 
-export default { db, discord, logger };
+export default { db, discord, logger, game };
