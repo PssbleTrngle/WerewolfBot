@@ -8,7 +8,7 @@ export function importAllWithName<T = unknown>(dir: string) {
 
    return Promise.all(files.map(async f => {
       const m = require(join(folder, f)) as any
-      return [f, m.default] as [string, T]
+      return [f, m.default ?? m] as [string, T]
    }))
 
 }
