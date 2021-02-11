@@ -1,14 +1,16 @@
 import { readdirSync, statSync } from "fs"
-import { join } from "path"
+import { extname, join } from "path"
 
 export function importAllWithName<T = unknown>(dir: string) {
    const folder = join(__dirname, dir)
 
-   const files = readdirSync(folder).filter(f => statSync(join(folder, f)).isFile && f.endsWith('.ts'))
+   const files = readdirSync(folder).filter(f =>
+      statSync(join(folder, f)).isFile && ['.ts', '.js'].includes(extname(f))
+   )
 
    return Promise.all(files.map(async f => {
       const m = require(join(folder, f)) as any
-      return [f, m.default ?? m] as [string, T]
+      return [f, m.default] as [string, T]
    }))
 
 }

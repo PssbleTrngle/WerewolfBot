@@ -71,7 +71,9 @@ const findCommand = (by: User, input: string, available?: Record<string, Command
 
 const load = async () => {
    const commands = await importAllWithName<Command>('commands')
+
    logger.debug(`Loaded ${commands.length} commands`)
+
    commands.forEach(([name, command]) =>
       COMMANDS[name.substring(0, name.lastIndexOf('.'))] = command
    )

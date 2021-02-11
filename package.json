@@ -3,7 +3,7 @@
    "version": "1.0.0",
    "description": "Play werewolf on Discord",
    "scripts": {
-      "run": "node build/src/index.js",
+      "run": "node build/index.js",
       "start": "ts-node src/index.ts",
       "watch": "nodemon",
       "build": "tsc",

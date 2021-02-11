@@ -19,7 +19,7 @@ export default class Game extends BaseEntity {
    @OneToMany(() => Player, p => p.game, { eager: true })
    players!: Player[]
 
-   static async inChannel(channel: string) {
+   static inChannel(channel: string) {
       return Game.findOne({ channel })
    }
 
