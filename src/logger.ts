@@ -8,8 +8,8 @@ type MSG = string | number | Error
 export const LogColor = {
    [LogLevel.ERROR]: 0xE5433D,
    [LogLevel.WARN]: 0xFFCC33,
-   [LogLevel.SUCCESS]: 0x4CC7E6,
-   [LogLevel.INFO]: 0x4CE65B,
+   [LogLevel.SUCCESS]: 0x4CE65B,
+   [LogLevel.INFO]: 0x4CC7E6,
    [LogLevel.DEBUG]: 0x4CC7E6,
 }
 
@@ -33,6 +33,7 @@ class Logger {
                `[${LogLevel[l]}] ${msg}`
             )
          )
+         if(msg instanceof Error && process.env.NODE_ENV !== 'production') console.log(msg.stack)
       }
    }
 

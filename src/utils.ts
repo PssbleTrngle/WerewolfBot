@@ -19,3 +19,7 @@ export async function importAll<T = unknown>(dir: string) {
    const modules = await importAllWithName<T>(dir)
    return modules.map(([, mod]) => mod)
 }
+
+export function arrayOf(length: number) {
+   return new Array(Math.floor(length)).fill(null).map((_, i) => i)
+}

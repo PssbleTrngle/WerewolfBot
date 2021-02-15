@@ -6,9 +6,7 @@ const command: Command = {
    execute: async channel => {
       const game = await Game.inChannel(channel.id)
 
-      await game.start()
-
-      return `The game started!`
+      return game.start()
    }
 }
 

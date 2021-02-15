@@ -6,7 +6,7 @@ import logger from "./logger"
 import { importAllWithName } from "./utils"
 
 type Execute = (channel: TextChannel, by: User, ...args: any[]) => Promise<Response> | Response
-type Response = string | { message: string | string[], level: LogLevel, title?: string }
+export type Response = string | { message: string | string[], level: LogLevel, title?: string }
 type Permission = (u: GuildMember) => void | boolean
 
 export const IS_ADMIN: Permission = user => {

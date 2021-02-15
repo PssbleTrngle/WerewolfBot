@@ -1,4 +1,4 @@
-import { Channel, Client, DMChannel, NewsChannel, TextChannel } from "discord.js";
+import { Channel, Client, DMChannel, NewsChannel, PartialTextBasedChannelFields, TextChannel } from "discord.js";
 import commands from './commands';
 import config, { LogLevel } from "./config";
 import CommandError from "./errors/CommandError";
@@ -18,17 +18,17 @@ class Bot extends Client {
       super({})
    }
 
-   embed(channel: MsgChannel, message: string | string[] | Error, title?: string, level?: LogLevel) {
+   async embed(channel: PartialTextBasedChannelFields, message: string | string[] | Error | undefined, title?: string, level?: LogLevel) {
       const description = typeof message === 'string'
          ? message
          : message instanceof Error
             ? message.message
-            : message.join('\n')
+            : message?.join('\n')
 
       const defaultLevel = typeof message === 'string' ? LogLevel.INFO : LogLevel.ERROR
-      channel.send({
+      await channel.send({
          embed: {
-            description, title,
+            description: description?.slice(0, 200), title,
             color: LogColor[level ?? defaultLevel],
          }
       })
