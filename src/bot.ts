@@ -1,6 +1,7 @@
 import { Channel, Client, DMChannel, NewsChannel, PartialTextBasedChannelFields, TextChannel } from "discord.js";
 import commands from './commands';
 import config, { LogLevel } from "./config";
+import PlayerToScreen from "./database/models/PlayerToScreen";
 import CommandError from "./errors/CommandError";
 import logger, { LogColor } from "./logger";
 
@@ -9,8 +10,6 @@ export type MsgChannel = TextChannel | DMChannel | NewsChannel
 export function isMessageChannel(channel: Channel): channel is MsgChannel {
    return ['text', 'dm', 'news'].includes(channel.type)
 }
-
-const isTextChannel = (channel: Channel): channel is TextChannel => channel.type === 'text'
 
 class Bot extends Client {
 
@@ -26,7 +25,7 @@ class Bot extends Client {
             : message?.join('\n')
 
       const defaultLevel = typeof message === 'string' ? LogLevel.INFO : LogLevel.ERROR
-      await channel.send({
+      return channel.send({
          embed: {
             description: description?.slice(0, 200), title,
             color: LogColor[level ?? defaultLevel],
@@ -54,19 +53,33 @@ const bot = new Bot()
 bot.on('message', async message => {
    const { content, channel, author } = message
    const { deleteCommandTriggers } = config.discord
-   if (!isTextChannel(channel)) return;
+   if (channel.type === 'text') {
 
-   const response = await bot.tryIn(channel, () => commands.tryExecute(channel, author, content))
+      const response = await bot.tryIn(channel, () => commands.tryExecute(channel, author, content))
 
-   if (response) {
+      if (response) {
 
-      if (deleteCommandTriggers && message.deletable) {
-         message.delete().catch(e => logger.warn(`Could not delete command trigger: ${e.message}`))
+         if (deleteCommandTriggers && message.deletable) {
+            message.delete().catch(e => logger.warn(`Could not delete command trigger: ${e.message}`))
+         }
+
+         if (typeof response === 'string') bot.embed(channel, response, undefined, LogLevel.SUCCESS)
+         else bot.embed(channel, response.message, response.title, response.level)
       }
 
-      if (typeof response === 'string') bot.embed(channel, response, undefined, LogLevel.SUCCESS)
-      else bot.embed(channel, response.message, response.title, response.level)
+   } else if (channel.type === 'dm') {
+
+
+
    }
+
+})
+
+bot.on('messageReactionAdd', async (reaction, by) => {
+
+   const screen = await PlayerToScreen.findOne({ message: reaction.message.id })
+
+   if (!by.bot) screen?.react(reaction.emoji, by.id)
 
 })
 

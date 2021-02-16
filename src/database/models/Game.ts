@@ -54,7 +54,7 @@ export default class Game extends BaseEntity {
 
       roles.push(...arrayOf(this.players.length - roles.length).map(() => Villager))
 
-      roles.sort(() => Math.random() - 0.5).forEach((r, i) =>
+      roles/*sort(() => Math.random() - 0.5).*/.forEach((r, i) =>
          this.players[i].role = r
       )
 

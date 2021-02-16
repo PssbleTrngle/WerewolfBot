@@ -1,4 +1,3 @@
-import { TextChannel } from 'discord.js';
 import { BaseEntity, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import bot from '../../bot';
 import Action from '../../logic/Action';
@@ -21,10 +20,6 @@ export default class Screen extends BaseEntity {
 
    get players() {
       return this.playerScreens.map(p => p.player)
-   }
-
-   get choices() {
-      return this.playerScreens.map(p => p.choice)
    }
 
    static async createFor(action: Action, ...players: Player[]) {
@@ -56,13 +51,17 @@ export default class Screen extends BaseEntity {
       const user = await bot.users.fetch(player.discord)
 
       const game = await this.game()
-      const channel = bot.channels.resolve(game.channel) as TextChannel
       const targets = await this.targets(player, game)
+      const reactions = this.action.reactions.slice(0, targets.length)
 
-      await bot.embed(user, targets.length ? [
+      const message = await bot.embed(user, targets.length ? [
          'Choose a target',
-         targets.map(t => t.name).join(', '),
+         ...targets.map((t, i) => `${reactions[i]} ${t.name}`),
       ] : undefined, this.action.description())
+
+      await Promise.all(reactions.map(e => message.react(e)))
+
+      return message
 
    }
 
@@ -80,7 +79,11 @@ export default class Screen extends BaseEntity {
 
    async done() {
       const targets = await this.targets()
-      return targets.length === this.choices.length
+      return targets.length === this.playerScreens.filter(s => s.chosen).length
+   }
+
+   async check() {
+      
    }
 
 }
