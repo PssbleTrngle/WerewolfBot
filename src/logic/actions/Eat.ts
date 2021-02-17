@@ -1,6 +1,6 @@
 import Game from "../../database/models/Game";
 import Player from "../../database/models/Player";
-import Action, { ALIVE, AND, IN_GROUP, NOT } from "../Action";
+import Action, { ALIVE, AND, IN_GROUP, NOT, Priority } from "../Action";
 import Named from "../Named";
 import { Group } from "../Role";
 
@@ -11,6 +11,10 @@ class Eat extends Action {
       ALIVE,
       NOT(IN_GROUP(Group.WOLF)),
    )
+
+   priority() {
+      return Priority.MID
+   }
 
    async execute(game: Game, chosen: Player) {
       await chosen.kill('You were eaten by the wolves')

@@ -14,9 +14,16 @@ export const NOT = (filter: TargetFilter): TargetFilter => (p, s) => !filter(p, 
 export const AND = (...filters: TargetFilter[]): TargetFilter => (p, s) => filters.every(f => f(p, s))
 export const OR = (...filters: TargetFilter[]): TargetFilter => (p, s) => filters.some(f => f(p, s))
 
-const NUMERALS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
-const BOOLEAN = ['✅', '❌']
+export const NUMERALS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
+export const BOOLEAN = ['✅', '❌']
 
+export enum Priority {
+   LAST = 0,
+   LATER = 25,
+   MID = 50,
+   EARLIER = 75,
+   FIRST = 100,
+}
 
 export default abstract class Action {
 
@@ -24,6 +31,8 @@ export default abstract class Action {
 
    public readonly name!: string
    public readonly reactions = NUMERALS
+
+   abstract priority(): number;
 
    abstract description(): string
 

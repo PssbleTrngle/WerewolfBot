@@ -16,6 +16,12 @@ import Death from './Death';
 import Player from "./Player";
 import Screen from './Screen';
 
+enum State {
+   WAITING = 'waiting',
+   NIGHT = 'night',
+   DAY = 'day',
+}
+
 @Entity()
 export default class Game extends BaseEntity {
 
@@ -34,6 +40,9 @@ export default class Game extends BaseEntity {
 
    @OneToMany(() => Screen, s => s.game, { eager: true })
    screens!: Screen[]
+
+   @Column({ enum: State, default: State.WAITING })
+   state!: State
 
    static async inChannel(channel: string) {
       const game = await Game.findOne({ channel })
@@ -98,7 +107,12 @@ export default class Game extends BaseEntity {
    async checkScreens() {
 
       if (this.screens.every(s => s.done)) {
+
          await this.executeScreens()
+
+         const message = this.state === State.NIGHT ? this.setDay() : this.setNight()
+         await bot.embed(this.channel, await message)
+
       } else {
          logger.debug(`Still ${this.screens.filter(s => !s.done).length} screens open`)
       }
@@ -108,7 +122,13 @@ export default class Game extends BaseEntity {
    /**
     * Called before each day/night
     */
-   private async nextPhases() {
+   private async nextPhases(phase: State.DAY | State.NIGHT) {
+      await this.reload()
+      if (this.state === phase) throw new Error('Game already in that phase')
+      this.state = phase
+      await this.save()
+
+      logger.debug(`Setting ${phase}`)
 
       // Kill players
       const dying = this.players.filter(p => p.deaths.some(d => d.in === 0))
@@ -117,18 +137,19 @@ export default class Game extends BaseEntity {
 
          logger.debug(`'${player.name}' died of '${death?.reason}'`)
 
-         player.deaths = []
          player.alive = false
          await player.save()
+         await Death.delete({ player })
 
          const user = await bot.users.fetch(player.discord)
          await bot.embed(user, { title: 'You died!', message: death?.reason })
 
-         //await Death.delete({ player })
       }))
 
       // Decrement open deaths
       await Death.getRepository().decrement({ in: MoreThan(0) }, 'in', 1)
+
+      await this.call(phase)
    }
 
    /**
@@ -139,11 +160,7 @@ export default class Game extends BaseEntity {
     * @returns The night message
     */
    async setNight(): Promise<Response> {
-
-      logger.debug('Setting night')
-
-      await this.nextPhases()
-      await this.call('night')
+      await this.nextPhases(State.NIGHT)
 
       await Sleeping.screen(this.alive)
 
@@ -156,11 +173,7 @@ export default class Game extends BaseEntity {
     * @returns The day message
     */
    async setDay(): Promise<Response> {
-
-      logger.debug('Setting day')
-
-      await this.nextPhases()
-      await this.call('day')
+      await this.nextPhases(State.DAY)
 
       await Lynch.screen(this.alive)
 
@@ -169,11 +182,18 @@ export default class Game extends BaseEntity {
    }
 
    async executeScreens() {
-      await Promise.all(this.screens.filter(s => s.done).map(async screen => {
+
+      const sorted = this.screens
+         .filter(s => s.done)
+         .sort((a, b) => b.action.priority() - a.action.priority())
+
+      // For loop because I need to keep the sorted order
+      for (const screen of sorted) {
          logger.debug(`Executing '${screen.action.name}' with result '${screen.result}'`)
          const chosen = await screen.chosen()
          await screen.action.execute(this, chosen)
-      }))
+      }
+
       await Screen.delete({ done: true, game: this })
    }
 

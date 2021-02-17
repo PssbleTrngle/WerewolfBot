@@ -1,18 +1,18 @@
-import bot from "../../bot";
-import Game from "../../database/models/Game";
-import Action from "../Action";
+import Action, { Priority } from "../Action";
 import Named from "../Named";
 
 @Named
 class Sleeping extends Action {
 
+   priority() {
+      return Priority.LAST
+   }
+
    description() {
       return 'You got tired and fell asleep'
    }
    
-   async execute(game: Game) {
-      await bot.embed(game.channel, await game.setDay())
-   }
+   async execute() {}
 
 }
 
