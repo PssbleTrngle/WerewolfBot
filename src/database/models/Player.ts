@@ -1,6 +1,7 @@
 import { BaseEntity, Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import config from '../../config';
 import CommandError, { LEAVE_NOT_ENOUGH_PLAYERS } from '../../errors/CommandError';
+import { DeathCause } from '../../logic';
 import Action from '../../logic/Action';
 import { NamedColumn } from '../../logic/Named';
 import Role, { Group } from '../../logic/Role';
@@ -82,8 +83,8 @@ export default class Player extends BaseEntity {
    /**
     * @param diesIn Amount of half-days until the player dies 
     */
-   async kill(reason: string, diesIn = 0) {
-      await Death.create({ player: this, in: diesIn, reason }).save()
+   async kill(cause: DeathCause, diesIn = 0) {
+      await Death.create({ player: this, in: diesIn, cause }).save()
    }
 
    screen(action: Action) {

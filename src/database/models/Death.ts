@@ -1,4 +1,5 @@
 import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { DeathCause } from '../../logic';
 import Player from './Player';
 
 @Entity()
@@ -13,7 +14,7 @@ export default class Death extends BaseEntity {
    @Column({ unsigned: true })
    in!: number
 
-   @Column()
-   reason!: string
+   @Column({ enum: DeathCause})
+   cause!: DeathCause
 
 }

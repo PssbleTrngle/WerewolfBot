@@ -1,4 +1,4 @@
-import { ALIVE, AND, IN_GROUP, NOT } from "..";
+import { ALIVE, AND, DeathCause, IN_GROUP, NOT } from "..";
 import { Priority } from "../";
 import Game from "../../database/models/Game";
 import Player from "../../database/models/Player";
@@ -19,7 +19,7 @@ class Eat extends Action {
    }
 
    async execute(game: Game, chosen: Player) {
-      await chosen.kill('You were eaten by the wolves')
+      await chosen.kill(DeathCause.EATEN)
    }
 
    description() {

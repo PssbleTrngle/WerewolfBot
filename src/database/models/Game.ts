@@ -186,14 +186,16 @@ export default class Game extends BaseEntity {
       await Promise.all(died.map(async player => {
          const death = player.deaths.find(d => d.in === 0)
 
-         logger.debug(`'${player.name}' died of '${death?.reason}'`)
+         logger.debug(`'${player.name}' died of '${death!.cause}'`)
 
          player.alive = false
          await player.save()
          await Death.delete({ player })
 
          const user = await bot.users.fetch(player.discord)
-         await bot.embed(user, { title: 'You died!', message: death?.reason })
+         await bot.embed(user, { title: 'You died!', message: death!.cause })
+
+         await this.call('death', death!.cause)
 
       }))
 
@@ -219,8 +221,8 @@ export default class Game extends BaseEntity {
 
    /**
     * Sets the game state to night
-    *    - Calls `night` event on all roles
-    *    - Puts all players on the `sleep` screen
+    *  - Calls `night` event on all roles
+    *  - Puts all players on the `sleep` screen
     * 
     * @returns The night message
     */
@@ -274,11 +276,11 @@ export default class Game extends BaseEntity {
       await Promise.all(this.players.map(async player => {
          const user = await bot.users.fetch(player.discord)
          bot.embed(user, {
-            title: `You are a **${player.role?.name}**`,
+            title: `You are a **${player.role!.name}**`,
             message: 'Role description...',
             embed: {
                thumbnail: {
-                  url: `https://raw.githubusercontent.com/PssbleTrngle/Werewolf-Grails/master/client/src/images/roles/${player.role?.name}.svg`,
+                  url: `https://raw.githubusercontent.com/PssbleTrngle/Werewolf-Grails/master/client/src/images/roles/${player.role!.name}.svg`,
                   height: 100,
                   width: 100,
                }

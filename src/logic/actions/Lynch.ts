@@ -1,4 +1,4 @@
-import { ALIVE, AND, OTHERS } from "..";
+import { ALIVE, AND, DeathCause, OTHERS } from "..";
 import { Priority } from "../";
 import bot from "../../bot";
 import Game from "../../database/models/Game";
@@ -20,7 +20,7 @@ class Lynch extends Action {
 
    async execute(game: Game, result: Player) {
       bot.embed(game.channel, `<@${result.discord}> was lynched`)
-      await result.kill('The village lynched you')
+      await result.kill(DeathCause.LYNCHED)
    }
 
    description() {
