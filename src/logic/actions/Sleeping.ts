@@ -1,4 +1,5 @@
-import Action, { Priority } from "../Action";
+import { Priority } from "../";
+import Action from "../Action";
 import Named from "../Named";
 
 @Named

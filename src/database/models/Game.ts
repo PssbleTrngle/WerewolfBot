@@ -5,21 +5,36 @@ import { Response } from '../../commands';
 import config, { LogLevel } from '../../config';
 import CommandError, { ALREADY_JOINED, GAME_EXISTING, GAME_MISSING, START_NOT_ENOUGH_PLAYERS } from '../../errors/CommandError';
 import logger from '../../logger';
-import { ALIVE } from '../../logic/Action';
+import { ALIVE, Event, Events } from '../../logic';
 import Lynch from '../../logic/actions/Lynch';
 import Sleeping from '../../logic/actions/Sleeping';
-import Role, { Event } from '../../logic/Role';
+import Role from '../../logic/Role';
 import Villager from '../../logic/roles/Villager';
 import Werewolf from '../../logic/roles/Werewolf';
+import WinCondition from '../../logic/WinCondition';
 import { arrayOf, exist, uniqueBy } from '../../utils';
 import Death from './Death';
 import Player from "./Player";
 import Screen from './Screen';
+import Win from './Win';
 
-enum State {
+export enum GameState {
    WAITING = 'waiting',
    NIGHT = 'night',
    DAY = 'day',
+}
+
+const Phases = {
+   [GameState.NIGHT]: {
+      action: Sleeping,
+      title: 'Night has fallen!',
+      gif: 'https://media1.tenor.com/images/3a61a5b84cdb7e4f257a01ce3b151f85/tenor.gif',
+   },
+   [GameState.DAY]: {
+      action: Lynch,
+      title: 'The sun has risen!',
+      gif: 'https://media.tenor.com/images/9ea722f9eac530c2e9265cf247d09021/tenor.gif',
+   }
 }
 
 @Entity()
@@ -41,8 +56,11 @@ export default class Game extends BaseEntity {
    @OneToMany(() => Screen, s => s.game, { eager: true })
    screens!: Screen[]
 
-   @Column({ enum: State, default: State.WAITING })
-   state!: State
+   @Column({ enum: GameState, default: GameState.WAITING })
+   state!: GameState
+
+   @OneToMany(() => Win, w => w.game, { eager: true })
+   wins!: Win[]
 
    static async inChannel(channel: string) {
       const game = await Game.findOne({ channel })
@@ -50,12 +68,13 @@ export default class Game extends BaseEntity {
       else return game
    }
 
-   static async createIn(player: User, channel: string) {
+   static async createIn(channel: string, player?: User) {
       const existing = await Game.inChannel(channel).catch(() => null)
       if (existing) throw new CommandError(GAME_EXISTING, player)
 
       const game = await Game.create({ channel }).save()
-      await game.join(player)
+      if (player) await game.join(player)
+      return game
    }
 
    async stop() {
@@ -95,9 +114,9 @@ export default class Game extends BaseEntity {
       return this.players.filter(p => ALIVE(p))
    }
 
-   private async call(event: Event) {
+   private async call<E extends Event>(event: E, sub?: Events[E]) {
       const roles = this.usedRoles()
-      await Promise.all(roles.map(r => r.call(event, this)))
+      await Promise.all(roles.map(r => r.call(event, this, sub)))
    }
 
    /**
@@ -110,7 +129,7 @@ export default class Game extends BaseEntity {
 
          await this.executeScreens()
 
-         const message = this.state === State.NIGHT ? this.setDay() : this.setNight()
+         const message = this.state === GameState.NIGHT ? this.setDay() : this.setNight()
          await bot.embed(this.channel, await message)
 
       } else {
@@ -122,7 +141,7 @@ export default class Game extends BaseEntity {
    /**
     * Called before each day/night
     */
-   private async nextPhases(phase: State.DAY | State.NIGHT) {
+   private async nextPhases(phase: GameState.DAY | GameState.NIGHT) {
       await this.reload()
       if (this.state === phase) throw new Error('Game already in that phase')
       this.state = phase
@@ -131,8 +150,40 @@ export default class Game extends BaseEntity {
       logger.debug(`Setting ${phase}`)
 
       // Kill players
-      const dying = this.players.filter(p => p.deaths.some(d => d.in === 0))
-      await Promise.all(dying.map(async player => {
+      const died = await this.acceptDeath()
+      await this.reload()
+
+      await this.call(phase)
+      await this.call('phase', phase)
+
+      await this.reload()
+      const winMessage = await this.checkWin()
+      if (winMessage) return winMessage
+
+      const message: string[] = []
+
+      if (died.length > 0) message.push(
+         `**${died.length}** player${died.length === 1 ? '' : 's'} died:`,
+         died.map(p => `<@${p.discord}>`).join(' ')
+      )
+
+      const { action, title, gif } = Phases[phase]
+      action.screen(this.alive)
+
+      return {
+         title, message, level: LogLevel.INFO, embed: {
+            image: {
+               url: gif,
+               height: 200,
+               width: 300,
+            }
+         }
+      }
+   }
+
+   async acceptDeath() {
+      const died = this.players.filter(p => p.deaths.some(d => d.in === 0))
+      await Promise.all(died.map(async player => {
          const death = player.deaths.find(d => d.in === 0)
 
          logger.debug(`'${player.name}' died of '${death?.reason}'`)
@@ -148,8 +199,22 @@ export default class Game extends BaseEntity {
 
       // Decrement open deaths
       await Death.getRepository().decrement({ in: MoreThan(0) }, 'in', 1)
+      return died
+   }
 
-      await this.call(phase)
+   async checkWin() {
+      const winning = this.wins.sort((a, b) => b.condition.priotity - a.condition.priotity)[0]
+      if (winning) {
+
+         const origin = this.players.find(p => p.id === winning.playerId)
+         const winners = winning.condition.winners(origin, this.players)
+
+         return {
+            title: winning.condition.message,
+            message: winners.map(w => `<@${w.discord}> ${w.icon}`).join(' ')
+         }
+
+      }
    }
 
    /**
@@ -160,11 +225,7 @@ export default class Game extends BaseEntity {
     * @returns The night message
     */
    async setNight(): Promise<Response> {
-      await this.nextPhases(State.NIGHT)
-
-      await Sleeping.screen(this.alive)
-
-      return { title: 'Night has fallen!', level: LogLevel.INFO }
+      return this.nextPhases(GameState.NIGHT)
    }
 
    /**
@@ -173,12 +234,7 @@ export default class Game extends BaseEntity {
     * @returns The day message
     */
    async setDay(): Promise<Response> {
-      await this.nextPhases(State.DAY)
-
-      await Lynch.screen(this.alive)
-
-      return { title: 'The sun has risen', level: LogLevel.INFO }
-
+      return this.nextPhases(GameState.DAY)
    }
 
    async executeScreens() {
@@ -197,32 +253,21 @@ export default class Game extends BaseEntity {
       await Screen.delete({ done: true, game: this })
    }
 
-   /**
-    * @deprecated 
-   */
-   private async reset() {
-      await Screen.delete({})
-
-      await Death.delete({})
-      await Player.update({ game: this }, { alive: true })
-
-      const channel = await bot.channels.fetch(this.channel) as TextChannel
-      await Promise.all(this.players.map(async p => {
-         p.role = null as any
-         const member = await channel.guild.members.fetch(p.discord)
-         p.name = member.displayName
-         p.alive = true
-         await p.save()
+   async recreate() {
+      const { channel, players } = this
+      await this.stop()
+      const newGame = await Game.createIn(this.channel)
+      await Promise.all(players.map(async p => {
+         const user = await bot.users.fetch(p.discord)
+         await newGame.join(user)
       }))
 
-      await this.reload()
+      return newGame
    }
 
    async start(): Promise<Response> {
 
       if (this.players.length < config.game.minPlayers) throw new CommandError(START_NOT_ENOUGH_PLAYERS)
-
-      await this.reset()
 
       await this.assignRoles()
 
@@ -230,7 +275,14 @@ export default class Game extends BaseEntity {
          const user = await bot.users.fetch(player.discord)
          bot.embed(user, {
             title: `You are a **${player.role?.name}**`,
-            message: 'Role description...'
+            message: 'Role description...',
+            embed: {
+               thumbnail: {
+                  url: `https://raw.githubusercontent.com/PssbleTrngle/Werewolf-Grails/master/client/src/images/roles/${player.role?.name}.svg`,
+                  height: 100,
+                  width: 100,
+               }
+            }
          })
       }))
 
@@ -252,6 +304,10 @@ export default class Game extends BaseEntity {
 
       await this.reload()
       return player
+   }
+
+   async win(condition: WinCondition, player?: Player) {
+      await Win.create({ player, game: this, condition }).save()
    }
 
 }

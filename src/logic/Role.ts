@@ -1,3 +1,4 @@
+import { Event, Events } from "."
 import Game from "../database/models/Game"
 import Player from "../database/models/Player"
 
@@ -6,9 +7,7 @@ export enum Group {
    VILLAGER,
 }
 
-export type Event = 'night' | 'day' | 'noon'
-
-type Subscriber<P> = (subject: P) => Promise<void> | void
+type Subscriber<E extends Event> = (game: Game, subject: Events[E]) => Promise<void>
 
 export default abstract class Role {
 
@@ -17,23 +16,23 @@ export default abstract class Role {
    readonly name!: string
    readonly groups: Group[] = []
 
-   private subscribers = new Map<Event, Subscriber<Player[]>[]>()
+   private subscribers = new Map<Event, Subscriber<any>[]>()
 
-   onEach(event: Event, sub: Subscriber<Player>) {
-      this.on(event, async players => {
-         await Promise.all(players.map(sub))
+   onEach<E extends Event>(event: E, sub: (player: Player, game: Game, subject: Events[E]) => Promise<void>) {
+      this.on(event, async (game, subject) => {
+         await Promise.all(game.players.map(async p => sub(p, game, subject)))
       })
    }
 
-   on(event: Event, sub: Subscriber<Player[]>) {
+   on<E extends Event>(event: E, sub: Subscriber<E>) {
       const subs = this.subscribers.get(event) ?? []
       subs.push(sub)
       this.subscribers.set(event, subs)
    }
 
-   async call(event: Event, game: Game) {
+   async call<E extends Event>(event: E, game: Game, subject?: Events[E]) {
       const subs = this.subscribers.get(event) ?? []
-      await Promise.all(subs.map(s => s(game.players)))
+      await Promise.all(subs.map(s => s(game, subject)))
    }
 
    constructor() {

@@ -41,6 +41,10 @@ export default class Player extends BaseEntity {
    @OneToMany(() => PlayerToScreen, s => s.player)
    screens!: Promise<Partial<PlayerToScreen>[]>
 
+   get icon() {
+      return this.alive ? '👨‍🌾' : '💀'
+   }
+
    async activeScreen() {
       const screen = await Screen.createQueryBuilder('screen')
          .leftJoinAndSelect('screen.playerScreens', 'playerScreen')

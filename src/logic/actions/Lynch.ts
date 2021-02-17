@@ -1,7 +1,9 @@
+import { ALIVE, AND, OTHERS } from "..";
+import { Priority } from "../";
 import bot from "../../bot";
 import Game from "../../database/models/Game";
 import Player from "../../database/models/Player";
-import Action, { ALIVE, AND, OTHERS, Priority } from "../Action";
+import Action from "../Action";
 import Named from "../Named";
 
 @Named

@@ -38,7 +38,7 @@ export default class PlayerToScreen extends BaseEntity {
       if (this.chosen) return false
 
       const screen = await Screen.findOneOrFail(this.screenId)
-      const choices = await screen.choices()
+      const choices = await screen.choices(this.player)
 
       if (!choices) return false
 
@@ -52,7 +52,7 @@ export default class PlayerToScreen extends BaseEntity {
       const selection = choices[choiceIndex]
       if (selection) {
          const display = typeof selection === 'string' ? selection : selection.name
-         bot.embed(channel, `You choose **${display}**`)
+         bot.embed(channel, `You chose **${display}**`)
       }
 
       await screen.reload()

@@ -9,7 +9,7 @@ const command: Command = {
 
       if(await Game.count() >= config.game.maxGames) throw new CommandError(MAX_GAMES)
 
-      await Game.createIn(by, channel.id)
+      await Game.createIn(channel.id, by)
 
       return `<@${by.id}> started a new game (1/${config.game.minPlayers})`
    }

@@ -1,7 +1,8 @@
-import { ALIVE, AND, IN_GROUP } from "../Action";
+import { IN_GROUP } from "../";
 import Eat from "../actions/Eat";
 import Named from "../Named";
 import Role, { Group } from "../Role";
+import WinCondition from "../WinCondition";
 
 @Named
 class Werewolf extends Role {
@@ -10,12 +11,19 @@ class Werewolf extends Role {
 
 }
 
+const FILTER = IN_GROUP(Group.WOLF)
+
 const role = new Werewolf()
-role.on('night', async players => {
+const win = new WinCondition('wolves', IN_GROUP(Group.WOLF), 'The wolves won!')
 
-   const wolfFilter = AND(ALIVE, IN_GROUP(Group.WOLF))
-   await Eat.screen(players.filter(p => wolfFilter(p)))
+role.on('night', async ({ alive }) => {
 
+   await Eat.screen(alive.filter(p => FILTER(p)))
+
+})
+
+role.on('phase', async game => {
+   if (game.alive.every(p => FILTER(p))) await game.win(win)
 })
 
 export default role

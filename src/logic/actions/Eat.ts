@@ -1,6 +1,8 @@
+import { ALIVE, AND, IN_GROUP, NOT } from "..";
+import { Priority } from "../";
 import Game from "../../database/models/Game";
 import Player from "../../database/models/Player";
-import Action, { ALIVE, AND, IN_GROUP, NOT, Priority } from "../Action";
+import Action from "../Action";
 import Named from "../Named";
 import { Group } from "../Role";
 

@@ -43,6 +43,8 @@ export default class Screen extends BaseEntity {
    }
 
    static async createFor(action: Action, ...players: Player[]) {
+      if(players.length === 0) return
+      
       const game = await Game.findOneOrFail(players[0].gameId)
 
       const screen = this.create({ action, game })
