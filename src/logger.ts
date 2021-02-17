@@ -33,7 +33,7 @@ class Logger {
                `[${LogLevel[l]}] ${msg}`
             )
          )
-         if(msg instanceof Error && process.env.NODE_ENV !== 'production') console.log(msg.stack)
+         if (msg instanceof Error && process.env.NODE_ENV !== 'production') console.log(msg.stack)
       }
    }
 
@@ -42,7 +42,7 @@ class Logger {
       const channel = id ? await bot.channels.fetch(id) : null
 
       if (channel?.isText() && l <= level) {
-         if (msg instanceof Error) bot.embed(channel, msg.message, '```typescript\n' + msg.stack + '\n```', l)
+         if (msg instanceof Error) bot.embed(channel, { title: msg.message, message: '```typescript\n' + msg.stack + '\n```', level: l })
          else channel.send(msg.toString())
       }
    }

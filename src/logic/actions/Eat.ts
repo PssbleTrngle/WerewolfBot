@@ -1,11 +1,20 @@
-import Action, { IN_GROUP, NOT } from "../Action";
+import Game from "../../database/models/Game";
+import Player from "../../database/models/Player";
+import Action, { ALIVE, AND, IN_GROUP, NOT } from "../Action";
 import Named from "../Named";
 import { Group } from "../Role";
 
 @Named
 class Eat extends Action {
 
-   isTarget = NOT(IN_GROUP(Group.WOLF))
+   choices = AND(
+      ALIVE,
+      NOT(IN_GROUP(Group.WOLF)),
+   )
+
+   async execute(game: Game, chosen: Player) {
+      await chosen.kill('You were eaten by the wolves')
+   }
 
    description() {
       return 'You are hungry, choose someone to munchy munch'

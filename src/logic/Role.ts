@@ -6,7 +6,7 @@ export enum Group {
    VILLAGER,
 }
 
-type Event = 'night' | 'day' | 'noon'
+export type Event = 'night' | 'day' | 'noon'
 
 type Subscriber<P> = (subject: P) => Promise<void> | void
 

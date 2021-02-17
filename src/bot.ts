@@ -1,5 +1,5 @@
 import { Channel, Client, DMChannel, NewsChannel, PartialTextBasedChannelFields, TextChannel } from "discord.js";
-import commands from './commands';
+import commands, { ExtendedMessage, Response } from './commands';
 import config, { LogLevel } from "./config";
 import PlayerToScreen from "./database/models/PlayerToScreen";
 import CommandError from "./errors/CommandError";
@@ -17,23 +17,28 @@ class Bot extends Client {
       super({})
    }
 
-   async embed(channel: PartialTextBasedChannelFields, message: string | string[] | Error | undefined, title?: string, level?: LogLevel) {
-      const description = typeof message === 'string'
-         ? message
-         : message instanceof Error
-            ? message.message
-            : message?.join('\n')
+   private toMessage(message: Response): ExtendedMessage {
+      if (typeof message === 'string') return { message: message }
+      else if (message instanceof Error) return { message: message.message, level: LogLevel.ERROR }
+      else return message
+   }
 
-      const defaultLevel = typeof message === 'string' ? LogLevel.INFO : LogLevel.ERROR
-      return channel.send({
+   async embed(channel: PartialTextBasedChannelFields | string, message: Response) {
+      const { title, level, embed, message: description } = this.toMessage(message)
+      const desc = Array.isArray(description) ? description.join('\n') : description
+
+      const c = typeof channel === 'object' ? channel : await this.channels.fetch(channel) as TextChannel
+      return c.send({
          embed: {
-            description: description?.slice(0, 200), title,
-            color: LogColor[level ?? defaultLevel],
+            description: desc,
+            title: title?.slice(0, 256),
+            color: LogColor[level ?? LogLevel.SUCCESS],
+            ...embed,
          }
       })
    }
 
-   async tryIn<T>(channel: MsgChannel, fn: () => T | Promise<T>): Promise<T | false> {
+   async tryIn<T>(channel: PartialTextBasedChannelFields, fn: () => T | Promise<T>): Promise<T | false> {
       try {
          return await fn()
       } catch (e) {
@@ -63,8 +68,7 @@ bot.on('message', async message => {
             message.delete().catch(e => logger.warn(`Could not delete command trigger: ${e.message}`))
          }
 
-         if (typeof response === 'string') bot.embed(channel, response, undefined, LogLevel.SUCCESS)
-         else bot.embed(channel, response.message, response.title, response.level)
+         bot.embed(channel, response)
       }
 
    } else if (channel.type === 'dm') {
@@ -77,9 +81,13 @@ bot.on('message', async message => {
 
 bot.on('messageReactionAdd', async (reaction, by) => {
 
-   const screen = await PlayerToScreen.findOne({ message: reaction.message.id })
+   bot.tryIn(by, async () => {
 
-   if (!by.bot) screen?.react(reaction.emoji, by.id)
+      const screen = await PlayerToScreen.findOne({ message: reaction.message.id })
+
+      if (!by.bot && screen) await screen.react(reaction.emoji, by)
+
+   })
 
 })
 

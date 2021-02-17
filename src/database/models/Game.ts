@@ -1,14 +1,18 @@
 import { TextChannel, User } from 'discord.js';
-import { BaseEntity, Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { BaseEntity, Column, Entity, MoreThan, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import bot from '../../bot';
 import { Response } from '../../commands';
 import config, { LogLevel } from '../../config';
 import CommandError, { ALREADY_JOINED, GAME_EXISTING, GAME_MISSING, START_NOT_ENOUGH_PLAYERS } from '../../errors/CommandError';
+import logger from '../../logger';
+import { ALIVE } from '../../logic/Action';
+import Lynch from '../../logic/actions/Lynch';
 import Sleeping from '../../logic/actions/Sleeping';
-import Role from '../../logic/Role';
+import Role, { Event } from '../../logic/Role';
 import Villager from '../../logic/roles/Villager';
 import Werewolf from '../../logic/roles/Werewolf';
-import { arrayOf } from '../../utils';
+import { arrayOf, exist, uniqueBy } from '../../utils';
+import Death from './Death';
 import Player from "./Player";
 import Screen from './Screen';
 
@@ -27,6 +31,9 @@ export default class Game extends BaseEntity {
 
    @OneToMany(() => Player, p => p.game, { eager: true, cascade: ['update'] })
    players!: Player[]
+
+   @OneToMany(() => Screen, s => s.game, { eager: true })
+   screens!: Screen[]
 
    static async inChannel(channel: string) {
       const game = await Game.findOne({ channel })
@@ -50,34 +57,124 @@ export default class Game extends BaseEntity {
 
       const roles: Role[] = []
 
+      // A third of the players will be werewolfs
       roles.push(...arrayOf(this.players.length / 3).map(() => Werewolf))
 
+      // All left players will be villagers
       roles.push(...arrayOf(this.players.length - roles.length).map(() => Villager))
 
-      roles/*sort(() => Math.random() - 0.5).*/.forEach((r, i) =>
-         this.players[i].role = r
-      )
+      // Shuffle and assign roles
+      roles
+         //.sort(() => Math.random() - 0.5)
+         .forEach((r, i) => this.players.sort((a, b) => a.id - b.id)[i].role = r)
 
       await this.save()
 
    }
 
-   async usedRoles() {
+   /**
+    * @return Every role present in the current game
+    */
+   usedRoles() {
       return this.players
          .map(p => p.role)
-         .filter((r, i, a) => r && !a.some((r2, i2) => r2?.name === r.name && i < i2))
+         .filter(exist)
+         .filter(uniqueBy(r => r.name))
    }
 
-   private async setNight() {
+   get alive() {
+      return this.players.filter(p => ALIVE(p))
+   }
 
-      const roles = await this.usedRoles()
-      await Promise.all(roles.map(r => r?.call('night', this)))
+   private async call(event: Event) {
+      const roles = this.usedRoles()
+      await Promise.all(roles.map(r => r.call(event, this)))
+   }
 
-      await Sleeping.screen(this.players)
+   /**
+    * Checks if there are any open screens
+    * If not, executes all of them
+    */
+   async checkScreens() {
 
-      await this.save()
+      if (this.screens.every(s => s.done)) {
+         await this.executeScreens()
+      } else {
+         logger.debug(`Still ${this.screens.filter(s => !s.done).length} screens open`)
+      }
 
-      return { title: 'Night has fallen!', message: '', level: LogLevel.INFO }
+   }
+
+   /**
+    * Called before each day/night
+    */
+   private async nextPhases() {
+
+      // Kill players
+      const dying = this.players.filter(p => p.deaths.some(d => d.in === 0))
+      await Promise.all(dying.map(async player => {
+         const death = player.deaths.find(d => d.in === 0)
+
+         logger.debug(`'${player.name}' died of '${death?.reason}'`)
+
+         player.deaths = []
+         player.alive = false
+         await player.save()
+
+         const user = await bot.users.fetch(player.discord)
+         await bot.embed(user, { title: 'You died!', message: death?.reason })
+
+         //await Death.delete({ player })
+      }))
+
+      // Decrement open deaths
+      await Death.getRepository().decrement({ in: MoreThan(0) }, 'in', 1)
+   }
+
+   /**
+    * Sets the game state to night
+    *    - Calls `night` event on all roles
+    *    - Puts all players on the `sleep` screen
+    * 
+    * @returns The night message
+    */
+   async setNight(): Promise<Response> {
+
+      logger.debug('Setting night')
+
+      await this.nextPhases()
+      await this.call('night')
+
+      await Sleeping.screen(this.alive)
+
+      return { title: 'Night has fallen!', level: LogLevel.INFO }
+   }
+
+   /**
+    * Sets the game state to day
+    * 
+    * @returns The day message
+    */
+   async setDay(): Promise<Response> {
+
+      logger.debug('Setting day')
+
+      await this.nextPhases()
+      await this.call('day')
+
+      await Lynch.screen(this.alive)
+
+      return { title: 'The sun has risen', level: LogLevel.INFO }
+
+   }
+
+   async executeScreens() {
+      await Promise.all(this.screens.filter(s => s.done).map(async screen => {
+         logger.debug(`Executing '${screen.action.name}' with result '${screen.result}'`)
+         const chosen = await screen.chosen()
+         await screen.action.execute(this, chosen)
+      }))
+      await Screen.delete({ done: true, game: this })
    }
 
    /**
@@ -86,13 +183,19 @@ export default class Game extends BaseEntity {
    private async reset() {
       await Screen.delete({})
 
+      await Death.delete({})
+      await Player.update({ game: this }, { alive: true })
+
       const channel = await bot.channels.fetch(this.channel) as TextChannel
       await Promise.all(this.players.map(async p => {
          p.role = null as any
          const member = await channel.guild.members.fetch(p.discord)
          p.name = member.displayName
+         p.alive = true
          await p.save()
       }))
+
+      await this.reload()
    }
 
    async start(): Promise<Response> {
@@ -105,7 +208,10 @@ export default class Game extends BaseEntity {
 
       await Promise.all(this.players.map(async player => {
          const user = await bot.users.fetch(player.discord)
-         bot.embed(user, undefined, `You are a **${player.role?.name}**`)
+         bot.embed(user, {
+            title: `You are a **${player.role?.name}**`,
+            message: 'Role description...'
+         })
       }))
 
       return this.setNight()

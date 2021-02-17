@@ -1,5 +1,6 @@
-import { GuildEmoji, ReactionEmoji } from 'discord.js';
+import { GuildEmoji, PartialTextBasedChannelFields, ReactionEmoji } from 'discord.js';
 import { BaseEntity, Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import bot from '../../bot';
 import Player from './Player';
 import Screen from './Screen';
 
@@ -12,40 +13,50 @@ export default class PlayerToScreen extends BaseEntity {
    @ManyToOne(() => Screen, { onDelete: 'CASCADE' })
    @JoinColumn({ name: 'screenId' })
    screen!: Promise<Screen>;
-
    @Column()
    screenId!: number
 
    @ManyToOne(() => Player, { eager: true, onDelete: 'CASCADE' })
+   @JoinColumn({ name: 'playerId' })
    player!: Player
+   @Column()
+   playerId!: number
 
    @Column({ nullable: true })
-   chosen!: number
+   chosen?: number
 
    @Column({ nullable: true })
    message!: string
 
-   async notify() {
+   async notifyOnCreation() {
       const active = await this.player.activeScreen()
-      if (active?.id === this.screenId) {
-         const message = await active.notify(this.player)
-         this.message = message.id
-         await this.save()
-      }
+      if (active?.id === this.screenId) await active.notify(this)
    }
 
-   async react(emoji: GuildEmoji | ReactionEmoji, by: string) {
+   async react(emoji: GuildEmoji | ReactionEmoji, channel: PartialTextBasedChannelFields) {
+
+      if (this.chosen) return false
 
       const screen = await Screen.findOneOrFail(this.screenId)
+      const choices = await screen.choices()
+
+      if (!choices) return false
+
       const choiceIndex = screen.action.reactions.findIndex(r => emoji.toString() === r)
 
-      if (choiceIndex < 0) return false;
+      if (choiceIndex < 0 || choiceIndex >= choices.length) return false
 
       this.chosen = choiceIndex
       await this.save()
 
-      await screen.check()
+      const selection = choices[choiceIndex]
+      if (selection) {
+         const display = typeof selection === 'string' ? selection : selection.name
+         bot.embed(channel, `You choose **${display}**`)
+      }
 
+      await screen.reload()
+      await screen.closeIfDone()
    }
 
 }

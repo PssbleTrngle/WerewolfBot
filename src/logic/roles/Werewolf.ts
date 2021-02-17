@@ -1,3 +1,4 @@
+import { ALIVE, AND, IN_GROUP } from "../Action";
 import Eat from "../actions/Eat";
 import Named from "../Named";
 import Role, { Group } from "../Role";
@@ -10,9 +11,10 @@ class Werewolf extends Role {
 }
 
 const role = new Werewolf()
-role.on('night', players => {
+role.on('night', async players => {
 
-   Eat.screen(players.filter(p => p.inGroup(Group.WOLF)))
+   const wolfFilter = AND(ALIVE, IN_GROUP(Group.WOLF))
+   await Eat.screen(players.filter(p => wolfFilter(p)))
 
 })
 

@@ -4,6 +4,7 @@ import CommandError, { LEAVE_NOT_ENOUGH_PLAYERS } from '../../errors/CommandErro
 import Action from '../../logic/Action';
 import { NamedColumn } from '../../logic/Named';
 import Role, { Group } from '../../logic/Role';
+import Death from './Death';
 import Game from "./Game";
 import PlayerToScreen from './PlayerToScreen';
 import Screen from './Screen';
@@ -31,15 +32,22 @@ export default class Player extends BaseEntity {
    @NamedColumn(() => Role, { nullable: true })
    role?: Role
 
+   @Column({ default: true })
+   alive!: boolean
+
+   @OneToMany(() => Death, d => d.player, { eager: true })
+   deaths!: Death[]
+
    @OneToMany(() => PlayerToScreen, s => s.player)
-   screens!: Promise<PlayerToScreen[]>
+   screens!: Promise<Partial<PlayerToScreen>[]>
 
    async activeScreen() {
-      const join = await PlayerToScreen.findOne(
-         { player: this },
-         { relations: ['screen', 'player'] }
-      )
-      return join?.screen
+      const screen = await Screen.createQueryBuilder('screen')
+         .leftJoinAndSelect('screen.playerScreens', 'playerScreen')
+         .where('playerScreen.playerId = :player', { player: this.id })
+         .andWhere('screen.done = false')
+         .getOne()
+      return screen && Screen.findOne(screen.id)
    }
 
    async leave() {
@@ -65,6 +73,13 @@ export default class Player extends BaseEntity {
 
          return game
       }
+   }
+
+   /**
+    * @param diesIn Amount of half-days until the player dies 
+    */
+   async kill(reason: string, diesIn = 0) {
+      await Death.create({ player: this, in: diesIn, reason }).save()
    }
 
    screen(action: Action) {

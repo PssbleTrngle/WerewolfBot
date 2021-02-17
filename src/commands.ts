@@ -1,4 +1,4 @@
-import { GuildMember, TextChannel, User } from "discord.js"
+import { GuildMember, MessageEmbedOptions, TextChannel, User } from "discord.js"
 import bot from "./bot"
 import config, { LogLevel } from "./config"
 import CommandError, { COMMAND_NOT_FOUND, INVALID_ARGUMENT, MISSING_ARG, NOT_AUTHORIZED, REQUIRES_SUBCOMMAND, TO_MANY_ARGS, USER_MISSING } from "./errors/CommandError"
@@ -6,12 +6,19 @@ import logger from "./logger"
 import { importAllWithName } from "./utils"
 
 type Execute = (channel: TextChannel, by: User, ...args: any[]) => Promise<Response> | Response
-export type Response = string | { message: string | string[], level: LogLevel, title?: string }
 type Permission = (u: GuildMember) => void | boolean
 
-export const IS_ADMIN: Permission = user => {
-   return user.permissions.has('ADMINISTRATOR')
+export type ExtendedMessage = {
+   message?: string | string[],
+   level?: LogLevel,
+   title?: string
+   embed?: MessageEmbedOptions
 }
+
+export type Response = string | ExtendedMessage | Error
+
+
+export const IS_ADMIN: Permission = user => user.permissions.has('ADMINISTRATOR')
 
 export interface Argument {
    name?: string
@@ -80,7 +87,7 @@ const findCommand = (channel: TextChannel, by: User, input: string, available?: 
 
       if (!isParent(command) || args.length === 0) {
          const argsSpecs = (command as ExecuteCommand).arguments ?? []
-         if(!isExecuter(command)) throw new CommandError(REQUIRES_SUBCOMMAND(id))
+         if (!isExecuter(command)) throw new CommandError(REQUIRES_SUBCOMMAND(id))
 
          if (args.length > argsSpecs.length) throw new CommandError(TO_MANY_ARGS)
 

@@ -23,3 +23,15 @@ export async function importAll<T = unknown>(dir: string) {
 export function arrayOf(length: number) {
    return new Array(Math.floor(length)).fill(null).map((_, i) => i)
 }
+
+export function exist<T>(t: T | null | undefined): t is T {
+   return t !== null && t !== undefined
+}
+
+export function uniqueBy<T>(by: (t: T) => any) {
+   return (t: T, i: number, a: T[]) => !a.some((t2, i2) => by(t) === by(t2) && i > i2)
+}
+
+export function unique<T>(t: T, i: number, a: T[]) {
+   return uniqueBy(t => t)(t, i, a)
+}
