@@ -9,6 +9,7 @@ import { ALIVE, Event, Events } from '../../logic';
 import Lynch from '../../logic/actions/Lynch';
 import Sleeping from '../../logic/actions/Sleeping';
 import Role from '../../logic/Role';
+import Jester from '../../logic/roles/Jester';
 import Villager from '../../logic/roles/Villager';
 import Werewolf from '../../logic/roles/Werewolf';
 import WinCondition from '../../logic/WinCondition';
@@ -87,6 +88,8 @@ export default class Game extends BaseEntity {
 
       // A third of the players will be werewolfs
       roles.push(...arrayOf(this.players.length / 3).map(() => Werewolf))
+
+      roles.push(Jester)
 
       // All left players will be villagers
       roles.push(...arrayOf(this.players.length - roles.length).map(() => Villager))
